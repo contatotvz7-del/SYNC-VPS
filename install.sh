@@ -40,13 +40,22 @@ create_user_if_needed() {
   fi
 
   if ! id "${RUN_USER}" >/dev/null 2>&1; then
-    useradd --system --create-home --home-dir "/home/${RUN_USER}" \
-      --shell /usr/sbin/nologin "${RUN_USER}" || true
+    useradd --system \
+      --create-home \
+      --home-dir "/home/${RUN_USER}" \
+      --shell /usr/sbin/nologin \
+      -g "${RUN_GROUP}" \
+      "${RUN_USER}" || true
   fi
 }
 
 install_app() {
   mkdir -p "${DEST}"
+
+  if [[ -d "${DEST}" ]]; then
+    find "${DEST}" -mindepth 1 -maxdepth 1 ! -name ".env" -exec rm -rf {} +
+  fi
+
   cp -a . "${DEST}/repo-tmp"
   shopt -s dotglob
   mv "${DEST}/repo-tmp"/* "${DEST}/"
@@ -71,6 +80,26 @@ cd /opt/sync-zoomier
 exec /usr/bin/node index.js "$@"
 EOF
   chmod +x /usr/local/bin/sync
+
+  cat > /usr/local/bin/sync-env <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "Arquivo .env: /opt/sync-zoomier/.env"
+echo "Edite com: nano /opt/sync-zoomier/.env"
+EOF
+  chmod +x /usr/local/bin/sync-env
+}
+
+show_next_steps() {
+  echo
+  echo "Instalação concluída."
+  echo "Próximos passos:"
+  echo "1) cd ${DEST}"
+  echo "2) se não existir .env: cp .env.example .env"
+  echo "3) editar .env"
+  echo "4) rodar: sync"
+  echo
+  echo "Se seu projeto real não usar index.js, ajuste o comando em /usr/local/bin/sync."
 }
 
 main() {
@@ -80,14 +109,7 @@ main() {
   create_user_if_needed
   install_app
   create_commands
-
-  echo
-  echo "Instalação concluída."
-  echo "Próximos passos:"
-  echo "1) cd ${DEST}"
-  echo "2) cp .env.example .env"
-  echo "3) editar .env"
-  echo "4) sync"
+  show_next_steps
 }
 
 main "$@"
